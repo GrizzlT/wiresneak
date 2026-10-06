@@ -6,6 +6,7 @@ use iroh::{Endpoint, SecretKey, endpoint::presets};
 use iroh_static_mesh::{GATED_CHANNEL_BUFFER, PubkeyToId, config::TunnelConfig, sync::gated_channel, tunnel::start_tunnel};
 use lexopt::{Arg, ValueExt};
 use prefix_trie::PrefixMap;
+use sd_notify::NotifyState;
 
 use crate::{connection::{connect_loop, run_connection}, hook::AcceptHook, protocol::ALPN};
 
@@ -123,6 +124,8 @@ async fn main() -> anyhow::Result<()> {
 
     // Read packets from synchronous tunnel
     let (mut rx, tx) = start_tunnel(tunnel_name);
+
+    let _ = sd_notify::notify(&[NotifyState::Ready]);
 
     // Start connect loop
     for id in keymap.keys().to_vec() {

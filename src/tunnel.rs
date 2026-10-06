@@ -9,11 +9,7 @@ use crate::ip::{IpPacket, parse_packet_addrs};
 pub fn start_tunnel(name: String) -> (Receiver<IpPacket>, Sender<BytesMut>) {
     let (sender, receiver) = mpsc::channel(1024);
     let (tx, rx) = mpsc::channel(1024);
-    tokio::spawn(tunnel_loop(sender, rx, name));
-    (receiver, tx)
-}
 
-async fn tunnel_loop(sender: Sender<IpPacket>, receiver: Receiver<BytesMut>, name: String) -> anyhow::Result<()> {
     let dev = Arc::new(DeviceBuilder::new()
         .name(name)
         .layer(tun_rs::Layer::L3)
@@ -22,6 +18,11 @@ async fn tunnel_loop(sender: Sender<IpPacket>, receiver: Receiver<BytesMut>, nam
         .offload(true)
         .build_async().unwrap());
 
+    tokio::spawn(tunnel_loop(dev, sender, rx));
+    (receiver, tx)
+}
+
+async fn tunnel_loop(dev: Arc<AsyncDevice>, sender: Sender<IpPacket>, receiver: Receiver<BytesMut>) -> anyhow::Result<()> {
     tokio::try_join!(
         tunnel_recv(Arc::clone(&dev), sender),
         tunnel_send(dev, receiver),
