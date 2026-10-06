@@ -2,7 +2,7 @@ use std::{net::IpAddr, path::PathBuf};
 
 use anyhow::Context;
 use ipnet::IpNet;
-use iroh::{Endpoint, endpoint::presets};
+use iroh::{Endpoint, SecretKey, endpoint::presets};
 use iroh_static_mesh::{GATED_CHANNEL_BUFFER, PubkeyToId, config::TunnelConfig, sync::gated_channel, tunnel::start_tunnel};
 use lexopt::{Arg, ValueExt};
 use prefix_trie::PrefixMap;
@@ -13,35 +13,48 @@ pub mod connection;
 pub mod hook;
 pub mod protocol;
 
-// TODO: convert to Enum and parse pubkey or genkey
-struct Args {
-    config: PathBuf,
-    name: Option<String>,
+enum Args {
+    Serve {
+        config: PathBuf,
+        name: Option<String>,
+    },
+    Generate,
+    PubKey,
 }
 
 fn parse_args() -> Result<Args, lexopt::Error> {
+    let mut flavor = None;
     let mut config = None;
     let mut name = None;
     let mut parser = lexopt::Parser::from_env();
     while let Some(arg) = parser.next()? {
         match arg {
-            Arg::Value(val) if config.is_none() => {
-                config = Some(val.parse()?)
+            Arg::Value(val) if flavor.is_none() => {
+                let val: String = val.parse()?;
+                flavor = Some(match val.as_str() {
+                    "serve" => Args::Serve { config: PathBuf::new(), name: None },
+                    "genkey" => Args::Generate,
+                    "pubkey" => Args::PubKey,
+                    _ => return Err("Usage: wiresneakd <serve|genkey|pubkey> [CONFIG [NAME]]".into()),
+                });
             }
-            Arg::Value(val) if name.is_none() => {
+            Arg::Value(val) if config.is_none() && matches!(flavor, Some(Args::Serve { .. })) => {
+                config = Some(val.parse()?);
+            }
+            Arg::Value(val) if name.is_none() && matches!(flavor, Some(Args::Serve { .. })) => {
                 name = Some(val.parse()?);
             }
             Arg::Long("help") | Arg::Short('h') => {
-                println!("Usage: wiresneakd CONFIG [NAME]");
+                println!("Usage: wiresneakd <serve|genkey|pubkey> [CONFIG [NAME]]");
                 std::process::exit(0);
             }
             _ => return Err(arg.unexpected()),
         }
     }
 
-    Ok(Args {
-        config: config.ok_or("missing argument CONFIG")?,
-        name,
+    Ok(match flavor.ok_or("Usage: wiresneakd <serve|genkey|pubkey| [CONFIG [NAME]]")? {
+        Args::Serve { .. } => Args::Serve { config: config.ok_or("missing argument CONFIG")?, name },
+        x => x,
     })
 }
 
@@ -49,13 +62,26 @@ fn parse_args() -> Result<Args, lexopt::Error> {
 async fn main() -> anyhow::Result<()> {
     // Fetch config
     let args = parse_args()?;
-    let tunnel_name = args.name
-        .unwrap_or(args.config.file_stem()
+
+    let (config, name) = match args {
+        Args::Serve { config, name } => (config, name),
+        Args::Generate => {
+            genkey()?;
+            return Ok(())
+        }
+        Args::PubKey => {
+            pubkey()?;
+            return Ok(())
+        },
+    };
+
+    let tunnel_name = name
+        .unwrap_or(config.file_stem()
             .map(|s| s.to_os_string())
             .map(|s| s.string())
             .transpose()?
             .ok_or(anyhow::anyhow!("Invalid tunnel name"))?);
-    let config: TunnelConfig = toml::from_str(&std::fs::read_to_string(&args.config).context("Could not read config")?).context("Could not parse config file")?;
+    let config: TunnelConfig = toml::from_str(&std::fs::read_to_string(&config).context("Could not read config")?).context("Could not parse config file")?;
     let self_id = config.interface.priv_key.public();
 
     println!("{config:?}");
@@ -91,6 +117,9 @@ async fn main() -> anyhow::Result<()> {
         .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .hooks(AcceptHook::new(keymap.keys().to_vec()))
         .bind().await?;
+
+    endpoint.online().await;
+    println!("Endpoint up!");
 
     // Read packets from synchronous tunnel
     let (mut rx, tx) = start_tunnel(tunnel_name);
@@ -133,6 +162,24 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     }
+
+    Ok(())
+}
+
+pub fn genkey() -> anyhow::Result<()> {
+    let secret = SecretKey::generate();
+    println!("{}", hex::encode(secret.to_bytes()));
+
+    Ok(())
+}
+
+pub fn pubkey() -> anyhow::Result<()> {
+    let mut secret = String::new();
+    std::io::stdin().read_line(&mut secret)?;
+    let secret = secret.trim().parse::<SecretKey>()?;
+    let public = secret.public();
+
+    println!("{}", hex::encode(public.as_bytes()));
 
     Ok(())
 }

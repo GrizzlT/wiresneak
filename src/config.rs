@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use ipnet::IpNet;
 use iroh::{KeyParsingError, PublicKey, SecretKey};
 use serde::{Deserialize, Deserializer, de::Error};
@@ -30,9 +32,23 @@ where
     T: std::str::FromStr<Err = KeyParsingError>,
 {
     let value = <&str>::deserialize(deserializer)?;
-    value
+    let attempt = value
         .parse::<T>()
-        .map_err(|e| parse_error_to_serde::<D>(value, e))
+        .map_err(|e| parse_error_to_serde::<D>(value, e));
+    match attempt {
+        Ok(v) => Ok(v),
+        Err(e) => {
+            let path = Path::new(value);
+            if path.is_file() {
+                let contents = std::fs::read_to_string(path)
+                    .map_err(|e| D::Error::custom(format!("could not read key file due to {e}")))?;
+                contents.trim().parse::<T>()
+                    .map_err(|e| parse_error_to_serde::<D>(value, e))
+            } else {
+                Err(e)
+            }
+        },
+    }
 }
 
 fn parse_error_to_serde<'de, D>(value: &str, error: KeyParsingError) -> D::Error

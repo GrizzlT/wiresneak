@@ -47,25 +47,27 @@ pub async fn run_connection(connection: Connection, mut rx: GatedReceiver<IpPack
 
         loop {
             tokio::select! {
-                Some(packet) = conn_rx.next() => match packet {
-                    Ok(packet) => if let Some((source, _)) = parse_packet_addrs(packet.as_ref()) {
-                        let mut found = false;
-                        for subnet in &subnets {
-                            if subnet.contains(&source) {
-                                found = true;
-                                break;
+                Some(packet) = conn_rx.next() => {
+                    match packet {
+                        Ok(packet) => if let Some((source, _)) = parse_packet_addrs(packet.as_ref()) {
+                            let mut found = false;
+                            for subnet in &subnets {
+                                if subnet.contains(&source) {
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if found {
+                                let mut buf = BytesMut::zeroed(VIRTIO_NET_HDR_LEN);
+                                buf.extend_from_slice(packet.as_ref());
+                                tx.send(buf).await?;
                             }
                         }
-                        if found {
-                            let mut buf = BytesMut::zeroed(VIRTIO_NET_HDR_LEN);
-                            buf.extend_from_slice(packet.as_ref());
-                            tx.send(buf).await?;
-                        }
+                        _ => break,
                     }
-                    _ => break,
                 },
                 Some(packet) = rx.recv() => {
-                    conn_tx.feed(packet.content).await?;
+                    conn_tx.send(packet.content).await?;
                 },
                 else => break,
             }
