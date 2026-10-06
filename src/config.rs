@@ -16,6 +16,8 @@ pub struct TunnelConfig {
 pub struct InterfaceConfig {
     #[serde(rename = "PrivateKey", deserialize_with = "deserialize_irohkey")]
     pub priv_key: SecretKey,
+    #[serde(rename = "Addresses")]
+    pub addresses: Vec<IpNet>,
 }
 
 #[derive(Debug, Deserialize)]

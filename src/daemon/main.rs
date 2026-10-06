@@ -1,8 +1,8 @@
-use std::{net::IpAddr, path::PathBuf};
+use std::{borrow::Cow, net::IpAddr, path::PathBuf};
 
 use anyhow::Context;
 use ipnet::IpNet;
-use iroh::{Endpoint, SecretKey, endpoint::presets};
+use iroh::{Endpoint, SecretKey, endpoint::presets, endpoint_info::AddrFilter};
 use iroh_static_mesh::{GATED_CHANNEL_BUFFER, PubkeyToId, config::TunnelConfig, sync::gated_channel, tunnel::start_tunnel};
 use lexopt::{Arg, ValueExt};
 use prefix_trie::PrefixMap;
@@ -53,7 +53,7 @@ fn parse_args() -> Result<Args, lexopt::Error> {
         }
     }
 
-    Ok(match flavor.ok_or("Usage: wiresneakd <serve|genkey|pubkey| [CONFIG [NAME]]")? {
+    Ok(match flavor.ok_or("Usage: wiresneakd <serve|genkey|pubkey> [CONFIG [NAME]]")? {
         Args::Serve { .. } => Args::Serve { config: config.ok_or("missing argument CONFIG")?, name },
         x => x,
     })
@@ -117,6 +117,20 @@ async fn main() -> anyhow::Result<()> {
         .alpns([ALPN.into()].into())
         .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
         .hooks(AcceptHook::new(keymap.keys().to_vec()))
+        .addr_filter(
+            AddrFilter::new(move |addrs| {
+                let mut result = Vec::new();
+                for addr in addrs.iter().cloned() {
+                    match addr {
+                        iroh::TransportAddr::Ip(addr) => if config.interface.addresses.iter().all(|&a| !a.contains(&addr.ip())) {
+                            result.push(iroh::TransportAddr::Ip(addr));
+                        },
+                        x => result.push(x),
+                    }
+                }
+                Cow::Owned(result)
+            })
+        )
         .bind().await?;
 
     endpoint.online().await;
