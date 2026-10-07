@@ -1,0 +1,55 @@
+name: Build .deb package
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # needed to attach the .deb to a GitHub release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and build output
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-deb
+        run: cargo install cargo-deb --locked
+
+      # cargo-deb builds the release binary itself (unless --no-build is passed),
+      # so a separate `cargo build --release` step is not required.
+      - name: Build .deb package
+        run: cargo deb
+
+      - name: Show package info
+        run: |
+          for f in target/debian/*.deb; do
+            echo "== $f =="
+            dpkg-deb --info "$f"
+            dpkg-deb --contents "$f"
+          done
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: deb-package
+          path: target/debian/*.deb
+          if-no-files-found: error
+
+      - name: Attach .deb to GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: target/debian/*.deb
