@@ -1466,27 +1466,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "iroh-static-mesh"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytes",
- "futures-util",
- "hex",
- "ipnet",
- "iroh",
- "lexopt",
- "prefix-trie",
- "sd-notify",
- "serde",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "toml",
- "tun-rs",
-]
-
-[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4084,6 +4063,27 @@ checksum = "7d6f32a0ff4a9f6f01231eb2059cc85479330739333e0e58cadf03b6af2cca10"
 dependencies = [
  "cfg-if",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "wiresneak"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "futures-util",
+ "hex",
+ "ipnet",
+ "iroh",
+ "lexopt",
+ "prefix-trie",
+ "sd-notify",
+ "serde",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "toml",
+ "tun-rs",
 ]
 
 [[package]]

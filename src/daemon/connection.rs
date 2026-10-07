@@ -4,7 +4,7 @@ use bytes::BytesMut;
 use futures_util::{SinkExt, StreamExt};
 use ipnet::IpNet;
 use iroh::{Endpoint, PublicKey, endpoint::Connection};
-use iroh_static_mesh::{ip::{IpPacket, parse_packet_addrs}, sync::GatedReceiver};
+use wiresneak::{ip::{IpPacket, parse_packet_addrs}, sync::GatedReceiver};
 use tokio::sync::mpsc::Sender;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 use tun_rs::VIRTIO_NET_HDR_LEN;

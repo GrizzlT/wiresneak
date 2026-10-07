@@ -1,8 +1,10 @@
 [package]
-name = "iroh-static-mesh"
+name = "wiresneak"
+description = "Simple IP tunnel over n0's Iroh"
 version = "0.1.0"
 edition = "2024"
 authors = [ "GrizzlT" ]
+license = "Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -30,3 +32,14 @@ anyhow = "1.0"
 lexopt = "0.3"
 hex = "0.4"
 sd-notify = "0.5"
+
+[package.metadata.deb]
+maintainer = "GrizzlT <13691001+GrizzlT@users.noreply.github.com>"
+depends = "$auto"
+section = "utility"
+priority = "optional"
+assets = [
+    ["target/release/wiresneakd", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/wiresneak/README", "644"],
+]
+

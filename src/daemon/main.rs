@@ -3,7 +3,7 @@ use std::{borrow::Cow, net::IpAddr, path::PathBuf};
 use anyhow::Context;
 use ipnet::IpNet;
 use iroh::{Endpoint, SecretKey, endpoint::presets, endpoint_info::AddrFilter};
-use iroh_static_mesh::{GATED_CHANNEL_BUFFER, PubkeyToId, config::TunnelConfig, sync::gated_channel, tunnel::start_tunnel};
+use wiresneak::{GATED_CHANNEL_BUFFER, PubkeyToId, config::TunnelConfig, sync::gated_channel, tunnel::start_tunnel};
 use lexopt::{Arg, ValueExt};
 use prefix_trie::PrefixMap;
 use sd_notify::NotifyState;

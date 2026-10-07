@@ -22,6 +22,7 @@
             pkgs.mold
             pkgs.rust-analyzer
             pkgs.cargo-edit
+            pkgs.cargo-deb
           ];
         } // (builtins.removeAttrs first [ "nativeBuildInputs" ]);
       in options);
