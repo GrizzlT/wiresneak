@@ -2,7 +2,7 @@ use std::{borrow::Cow, net::IpAddr, path::PathBuf};
 
 use anyhow::Context;
 use ipnet::IpNet;
-use iroh::{Endpoint, SecretKey, endpoint::presets, endpoint_info::AddrFilter};
+use iroh::{Endpoint, SecretKey, dns::DnsResolver, endpoint::presets, endpoint_info::AddrFilter};
 use wiresneak::{GATED_CHANNEL_BUFFER, PubkeyToId, config::TunnelConfig, sync::gated_channel, tunnel::start_tunnel};
 use lexopt::{Arg, ValueExt};
 use prefix_trie::PrefixMap;
@@ -112,7 +112,7 @@ async fn main() -> anyhow::Result<()> {
     println!("Computed prefix trie: {peers_v4:?}");
     println!("Computed prefix trie: {peers_v6:?}");
 
-    let endpoint = Endpoint::builder(presets::N0)
+    let mut endpoint = Endpoint::builder(presets::N0)
         .secret_key(config.interface.priv_key)
         .alpns([ALPN.into()].into())
         .portmapper_config(iroh::endpoint::PortmapperConfig::Disabled)
@@ -130,8 +130,14 @@ async fn main() -> anyhow::Result<()> {
                 }
                 Cow::Owned(result)
             })
-        )
-        .bind().await?;
+        );
+    if !config.interface.dns_bootstrap.is_empty() {
+        let resolver = DnsResolver::builder()
+            .add_nameserver_configs(config.interface.dns_bootstrap.into_iter().map(|v| v.0))
+            .build();
+        endpoint = endpoint.dns_resolver(resolver);
+    }
+    let endpoint = endpoint.bind().await?;
 
     endpoint.online().await;
     println!("Endpoint up!");
