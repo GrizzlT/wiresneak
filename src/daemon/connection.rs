@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use futures_util::{SinkExt, StreamExt};
 use ipnet::IpNet;
 use iroh::{Endpoint, PublicKey, endpoint::Connection};
@@ -73,7 +73,7 @@ pub async fn run_connection(connection: Connection, mut rx: GatedReceiver<IpPack
             }
         }
 
-        conn_tx.flush().await?;
+        SinkExt::<Bytes>::flush(&mut conn_tx).await?;
 
         Ok(())
     }.await;
